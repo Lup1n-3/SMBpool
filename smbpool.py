@@ -15,13 +15,16 @@ def check_installation(tool):
 
 def scan_ip(ip):
     try:
+        print(f"Probando IP: {ip}")
         # Escanear el puerto SMB (445)
         syn_packet = IP(dst=ip)/TCP(dport=445, flags="S")
         response = sr1(syn_packet, timeout=1, verbose=0)
         if response and response.haslayer(TCP) and response.getlayer(TCP).flags == 0x12:
             # Si el puerto está abierto, ejecutar smbclient
+            print(f"Conexión exitosa a {ip}:445")
             result = subprocess.run(['smbclient', '-L', f'//{ip}', '-N'], capture_output=True, text=True)
             if "Sharename" in result.stdout:
+                print(f"Recursos compartidos encontrados en {ip}")
                 return ip
     except Exception as e:
         pass
@@ -53,12 +56,20 @@ def main():
 
     ip_range = [str(ip) for ip in ip_network]
 
+    print(f"Iniciando escaneo de IPs en el rango {cidr_range}...")
+    found_ips = []
+
     with open('list.txt', 'w') as file:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             results = executor.map(scan_ip, ip_range)
             for ip in results:
                 if ip:
+                    found_ips.append(ip)
                     file.write(f'{ip}:445\n')
+
+    print("Escaneo completado. IPs encontradas:")
+    for ip in found_ips:
+        print(ip)
 
 if __name__ == "__main__":
     conf.verb = 0  # Silenciar advertencias de Scapy
