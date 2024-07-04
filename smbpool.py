@@ -34,6 +34,14 @@ def main():
     # Verificar e instalar smbclient si es necesario
     check_installation('smbclient')
 
+    # Verificar conectividad de red
+    try:
+        subprocess.run(['ping', '-c', '1', '8.8.8.8'], capture_output=True, text=True, check=True)
+        print("Conectividad de red verificada.")
+    except subprocess.CalledProcessError:
+        print("No hay conectividad de red. Verifique su conexión.")
+        return
+
     cidr_range = input("Ingrese el rango CIDR (por ejemplo, 152.168.0.0/14): ")
     max_workers = int(input("Ingrese la cantidad de hilos a usar: "))
 
@@ -53,4 +61,5 @@ def main():
                     file.write(f'{ip}:445\n')
 
 if __name__ == "__main__":
+    conf.verb = 0  # Silenciar advertencias de Scapy
     main()
