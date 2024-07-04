@@ -2,6 +2,7 @@ import subprocess
 import concurrent.futures
 import os
 import time
+import ipaddress
 
 def check_installation(tool):
     """Verifica si una herramienta está instalada y la instala si no lo está."""
@@ -59,22 +60,21 @@ def main():
     
     print(logo)
 
-    # Animación para "Iniciando escaneo de IPs ..." justo antes de comenzar el escaneo
+    # Mostrar mensaje de inicio del escaneo y contador de IPs escaneadas
     print("\nIniciando escaneo de IPs...")
     print("=====================================")
+    print("IPs escaneadas: 0", end='', flush=True)
 
     try:
         found_ips = []
+        scanned_ips_count = 0
         with open('list.txt', 'w') as file:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # Escaneo de SMB utilizando smbclient en las IPs del rango especificado
                 if '/' in target:
                     # Es un rango CIDR
-                    ip_range = subprocess.run(['nmap', '-p', '445', '--open', '--script', 'smb-os-discovery', '-oG', '-', target], capture_output=True, text=True, timeout=300)
-                    if not ip_range:
-                        print("No se encontraron IPs con el puerto SMB (445) abierto.")
-                        return
-                    ip_list = [line.split()[1] for line in ip_range.stdout.splitlines() if "/open/" in line]
+                    ip_network = ipaddress.ip_network(target, strict=False)
+                    ip_list = [str(ip) for ip in ip_network.hosts()]
                 else:
                     # Es una IP única
                     ip_list = [target]
@@ -82,16 +82,17 @@ def main():
                 num_ips = len(ip_list)
                 count_found = 0
 
-                for ip in ip_list:
-                    time.sleep(0.5)  # Simular un proceso de verificación
+                futures = {executor.submit(check_smb, ip): ip for ip in ip_list}
 
-                    print(f"Probando IP: {ip}")
-                    result = check_smb(ip)
+                for future in concurrent.futures.as_completed(futures):
+                    scanned_ips_count += 1
+                    print(f"\rIPs escaneadas: {scanned_ips_count}", end='', flush=True)
+                    result = future.result()
                     if result:
                         found_ips.append(result)
                         file.write(f'{result}\n')
                         count_found += 1
-                        print(f"Número de IPs encontradas: {count_found}")
+                        print(f"\nNúmero de IPs encontradas: {count_found}")
 
                 # Limpiar la pantalla y mostrar la cantidad de IPs encontradas junto con el logo
                 os.system('clear')
