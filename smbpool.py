@@ -3,6 +3,7 @@ import concurrent.futures
 import os
 import time
 import ipaddress
+from datetime import datetime
 
 def check_installation(tool):
     """Verifica si una herramienta está instalada y la instala si no lo está."""
@@ -23,6 +24,10 @@ def check_smb(ip):
         print(f"Error al ejecutar smbclient en {ip}: {e}")
     return None
 
+def generate_filename():
+    """Genera un nombre de archivo único basado en la fecha y hora actuales."""
+    return f"scan_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+
 def main():
     os.system('clear')  # Limpiar pantalla al iniciar
     logo = """
@@ -34,7 +39,7 @@ def main():
 /_______  /\____|__  /______  /|   __/ \____/ \____/|____/
         \/         \/       \/ |__|                       
 ===========================================================
-   		      SMBpool by Lup1n
+                      SMBpool by Lup1n
 ===========================================================
 """
 
@@ -65,10 +70,13 @@ def main():
     print("=====================================")
     print("IPs escaneadas: 0", end='', flush=True)
 
+    # Generar un nombre de archivo único para este escaneo
+    filename = generate_filename()
+
     try:
         found_ips = []
         scanned_ips_count = 0
-        with open('list.txt', 'w') as file:
+        with open(filename, 'w') as file:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # Escaneo de SMB utilizando smbclient en las IPs del rango especificado
                 if '/' in target:
@@ -98,6 +106,7 @@ def main():
                 os.system('clear')
                 print(logo)
                 print(f"\nNúmero total de IPs encontradas con recursos compartidos: {count_found}")
+                print(f"Resultados guardados en: {filename}")
 
     except Exception as e:
         print(f"Error durante el escaneo: {e}")
