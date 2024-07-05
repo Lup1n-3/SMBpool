@@ -22,7 +22,7 @@ El script ejecutará un escaneo utilizando smbclient para cada IP en el rango es
 Durante el escaneo, se mostrará el progreso y las IPs encontradas con recursos compartidos.
 Resultados:
 
-Al finalizar generara en la misma carpeta que el .py un "list.txt" con todas las IPs a las que puede ingresar usando:
+Al finalizar generara en la misma carpeta que el .py un txt con todas las IPs a las que puede ingresar usando:
 
 ```bash
 smbclient -L //IP -N
