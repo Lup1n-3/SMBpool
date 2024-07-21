@@ -4,6 +4,7 @@ import os
 import time
 import ipaddress
 from datetime import datetime
+import multiprocessing
 
 def check_installation(tool):
     """Verifica si una herramienta está instalada y la instala si no lo está."""
@@ -23,16 +24,6 @@ def check_smb(ip):
     except Exception as e:
         print(f"Error al ejecutar smbclient en {ip}: {e}")
     return None
-
-def generate_filename():
-    """Genera un nombre de archivo único basado en la fecha y hora actuales."""
-    return f"scan_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-
-def get_ip_list_from_file(filename):
-    """Obtiene una lista de IPs o rangos de IPs desde un archivo."""
-    with open(filename, 'r') as file:
-        ip_ranges = file.read().splitlines()
-    return ip_ranges
 
 def main():
     os.system('clear')  # Limpiar pantalla al iniciar
@@ -62,20 +53,19 @@ def main():
         print("\nNo hay conectividad de red. Verifique su conexión.")
         return
 
-    # Entrada de datos (rango CIDR o IP única y cantidad de hilos)
-    input_option = input("Ingrese '1' para ingresar IPs/rangos manualmente o '2' para cargar desde un archivo: ")
+    # Entrada de datos (rango CIDR o IP única y opción de hilos)
+    target = input("Ingrese el rango CIDR o una IP única (por ejemplo, 152.168.0.1 o 152.168.0.0/14): ")
+    thread_option = input("Ingrese el nivel de uso de hilos ('low' para uso bajo, 'high' para uso alto): ").strip().lower()
 
-    if input_option == '1':
-        target = input("Ingrese las IPs o rangos CIDR separados por comas (por ejemplo, 152.168.0.1,152.168.0.0/14): ")
-        ip_ranges = target.split(',')
-    elif input_option == '2':
-        filename = input("Ingrese el nombre del archivo con las IPs o rangos CIDR: ")
-        ip_ranges = get_ip_list_from_file(filename)
+    # Configurar la cantidad de hilos según la opción elegida
+    cpu_count = multiprocessing.cpu_count()
+    if thread_option == 'low':
+        max_workers = max(1, cpu_count // 2)  # Usa la mitad de los núcleos disponibles
+    elif thread_option == 'high':
+        max_workers = cpu_count  # Usa todos los núcleos disponibles
     else:
-        print("Opción no válida.")
+        print("Opción de hilos no válida. Use 'low' o 'high'.")
         return
-
-    max_workers = int(input("Ingrese la cantidad de hilos a usar: "))
 
     # Limpiar pantalla antes de iniciar el escaneo
     os.system('clear')
@@ -87,24 +77,21 @@ def main():
     print("=====================================")
     print("IPs escaneadas: 0", end='', flush=True)
 
-    # Generar un nombre de archivo único para este escaneo
-    filename = generate_filename()
-
     try:
         found_ips = []
         scanned_ips_count = 0
-        with open(filename, 'w') as file:
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        output_file = f'scan_results_{timestamp}.txt'
+        with open(output_file, 'w') as file:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                ip_list = []
-
-                for ip_range in ip_ranges:
-                    if '/' in ip_range:
-                        # Es un rango CIDR
-                        ip_network = ipaddress.ip_network(ip_range.strip(), strict=False)
-                        ip_list.extend([str(ip) for ip in ip_network.hosts()])
-                    else:
-                        # Es una IP única
-                        ip_list.append(ip_range.strip())
+                # Escaneo de SMB utilizando smbclient en las IPs del rango especificado
+                if '/' in target:
+                    # Es un rango CIDR
+                    ip_network = ipaddress.ip_network(target, strict=False)
+                    ip_list = [str(ip) for ip in ip_network.hosts()]
+                else:
+                    # Es una IP única
+                    ip_list = [target]
 
                 num_ips = len(ip_list)
                 count_found = 0
@@ -125,7 +112,6 @@ def main():
                 os.system('clear')
                 print(logo)
                 print(f"\nNúmero total de IPs encontradas con recursos compartidos: {count_found}")
-                print(f"Resultados guardados en: {filename}")
 
     except Exception as e:
         print(f"Error durante el escaneo: {e}")
