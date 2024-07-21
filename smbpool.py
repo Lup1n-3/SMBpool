@@ -28,6 +28,12 @@ def generate_filename():
     """Genera un nombre de archivo único basado en la fecha y hora actuales."""
     return f"scan_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
 
+def get_ip_list_from_file(filename):
+    """Obtiene una lista de IPs o rangos de IPs desde un archivo."""
+    with open(filename, 'r') as file:
+        ip_ranges = file.read().splitlines()
+    return ip_ranges
+
 def main():
     os.system('clear')  # Limpiar pantalla al iniciar
     logo = """
@@ -57,7 +63,18 @@ def main():
         return
 
     # Entrada de datos (rango CIDR o IP única y cantidad de hilos)
-    target = input("Ingrese el rango CIDR o una IP única (por ejemplo, 152.168.0.1 o 152.168.0.0/14): ")
+    input_option = input("Ingrese '1' para ingresar IPs/rangos manualmente o '2' para cargar desde un archivo: ")
+
+    if input_option == '1':
+        target = input("Ingrese las IPs o rangos CIDR separados por comas (por ejemplo, 152.168.0.1,152.168.0.0/14): ")
+        ip_ranges = target.split(',')
+    elif input_option == '2':
+        filename = input("Ingrese el nombre del archivo con las IPs o rangos CIDR: ")
+        ip_ranges = get_ip_list_from_file(filename)
+    else:
+        print("Opción no válida.")
+        return
+
     max_workers = int(input("Ingrese la cantidad de hilos a usar: "))
 
     # Limpiar pantalla antes de iniciar el escaneo
@@ -78,14 +95,16 @@ def main():
         scanned_ips_count = 0
         with open(filename, 'w') as file:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Escaneo de SMB utilizando smbclient en las IPs del rango especificado
-                if '/' in target:
-                    # Es un rango CIDR
-                    ip_network = ipaddress.ip_network(target, strict=False)
-                    ip_list = [str(ip) for ip in ip_network.hosts()]
-                else:
-                    # Es una IP única
-                    ip_list = [target]
+                ip_list = []
+
+                for ip_range in ip_ranges:
+                    if '/' in ip_range:
+                        # Es un rango CIDR
+                        ip_network = ipaddress.ip_network(ip_range.strip(), strict=False)
+                        ip_list.extend([str(ip) for ip in ip_network.hosts()])
+                    else:
+                        # Es una IP única
+                        ip_list.append(ip_range.strip())
 
                 num_ips = len(ip_list)
                 count_found = 0
